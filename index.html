@@ -380,6 +380,7 @@ footer::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;back
       <form id="newsForm">
         <input type="hidden" id="nId">
         <div class="field"><label>Judul</label><input type="text" id="nTitle" required></div>
+        <div class="field"><label>Tanggal kegiatan</label><input type="date" id="nDate" required></div>
         <div class="field"><label>Foto</label><input type="file" id="nImg" accept="image/*"><img class="preview" id="nPrev" style="display:none" alt=""></div>
         <div class="field"><label>Artikel singkat</label><textarea id="nText" required></textarea></div>
         <div class="err" id="nErr"></div>
@@ -710,8 +711,9 @@ footer::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;back
 
   /* ---------- ADMIN: BERITA ---------- */
   let newImg = null;
-  function resetForm(){ $('#newsForm').reset(); $('#nId').value=''; $('#nPrev').style.display='none'; newImg=null; $('#nErr').textContent=''; }
-  $('#nReset').addEventListener('click', resetForm);
+  const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+  function resetForm(){ $('#newsForm').reset(); $('#nDate').value = today(); $('#nId').value=''; $('#nPrev').style.display='none'; newImg=null; $('#nErr').textContent=''; }
+  $('#nReset').addEventListener('click', resetForm); $('#nDate').value = today();
   $('#nImg').addEventListener('change', async e => {
     const f = e.target.files[0]; if(!f) return;
     try{ newImg = await compress(f, 1000, .75); $('#nPrev').src = newImg; $('#nPrev').style.display='block'; }catch(_){ $('#nErr').textContent='Gambar tidak dapat dibaca.'; }
@@ -719,14 +721,14 @@ footer::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;back
   $('#newsForm').addEventListener('submit', async e => {
     e.preventDefault();
     if(!isAdmin) return;
-    const id = $('#nId').value, title = $('#nTitle').value.trim(), text = $('#nText').value.trim();
+    const id = $('#nId').value, title = $('#nTitle').value.trim(), text = $('#nText').value.trim(), date = $('#nDate').value || today();
     if(!title || !text) return;
     const btn = e.submitter; if(btn) btn.disabled = true;
     try{
       if(!DB) throw new Error('db');
       const img = newImg ? await upImg(newImg) : null;
-      if(id){ const d = {title, text}; if(img) d.img = img; await DB.doc('news/' + id).update(d); }
-      else { const nid = 'n' + Date.now(); await DB.doc('news/' + nid).set({title, text, img: img || ph('AMBALAN PRABU KRISNA'), date: new Date().toISOString().slice(0,10)}); }
+      if(id){ const d = {title, text, date}; if(img) d.img = img; await DB.doc('news/' + id).update(d); }
+      else { const nid = 'n' + Date.now(); await DB.doc('news/' + nid).set({title, text, img: img || ph('AMBALAN PRABU KRISNA'), date}); }
       resetForm(); toast('Berita tersimpan di database ✔');
     }catch(err){ $('#nErr').textContent = dbErr(err); }
     if(btn) btn.disabled = false;
@@ -734,7 +736,7 @@ footer::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;back
   $('#adminNews').addEventListener('click', e => {
     if(!isAdmin) return;
     const ed = e.target.dataset.edit, dl = e.target.dataset.del;
-    if(ed){ const n = news.find(x => x.id === ed); $('#nId').value=n.id; $('#nTitle').value=n.title; $('#nText').value=n.text; $('#nPrev').src=n.img; $('#nPrev').style.display='block'; newImg=null; $('#pBerita').scrollIntoView({behavior:'smooth'}); }
+    if(ed){ const n = news.find(x => x.id === ed); $('#nId').value=n.id; $('#nTitle').value=n.title; $('#nDate').value=n.date || today(); $('#nText').value=n.text; $('#nPrev').src=n.img; $('#nPrev').style.display='block'; newImg=null; $('#pBerita').scrollIntoView({behavior:'smooth'}); }
     if(dl && confirm('Hapus berita ini?')){ if(!DB){ toast(dbErr()); return; } DB.doc('news/' + dl).delete().then(() => toast('Berita dihapus'), err => toast(dbErr(err))); }
   });
 
